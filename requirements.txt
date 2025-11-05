@@ -12,3 +12,4 @@ langchain-text-splitters
 python-dotenv
 sentence-transformers
 transformers
+streamlit
