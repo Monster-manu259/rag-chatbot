@@ -1,0 +1,11 @@
+# Ignore Python cache
+__pycache__/
+
+# Ignore environment files
+.env
+
+# Ignore temp document
+temp_APMC_DOCUMENTATION.pdf
+
+# Ignore test file
+test.py
