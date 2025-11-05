@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+langchain
+pinecone
+langchain-google-genai
+pydantic
+typing
+PyPDF2
+PyMuPDFLoader
+langchain-community
+langchain-text-splitters
+python-dotenv
+sentence-transformers
+transformers
