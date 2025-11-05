@@ -22,9 +22,10 @@ async def upload_files(files: list[UploadFile] = File(...)):
 
 class QueryRequest(BaseModel):
     query: str
+    top_k: int = 5
 
 @router.post("/query")
 async def query_endpoint(request: QueryRequest):
     processor = DocumentProcessor()
-    results = processor.retrieving_chunks(request.query)
+    results = processor.answer_query(request.query, top_k=request.top_k)
     return {"results": results}

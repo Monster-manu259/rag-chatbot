@@ -1,21 +1,20 @@
+from google.generativeai.generative_models import GenerativeModel
 from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from typing import List
 from src.utils.exceptions import (
     EmbeddingAPIError,
     PineconeAPIError,
     RetrievingAPIError
 )
-from google.generativeai.client import configure
-from google.generativeai.embedding import embed_content
+from sentence_transformers import SentenceTransformer
 from src.config.settings import settings
 from src.config.pinecone_db import PineconeDB
 
+
 class DocumentProcessor:
     def __init__(self):
-        if not settings.GOOGLE_API_KEY:
-            raise ValueError("GOOGLE_API_KEY is not set in environment variables.")
-        configure(api_key=settings.GOOGLE_API_KEY)
+        self.model = SentenceTransformer("intfloat/e5-base-v2")
         self.pinecone_db = PineconeDB()
 
     def page_content(self, pdf_path: str) -> List:
@@ -34,9 +33,8 @@ class DocumentProcessor:
 
     def embedding(self, texts) -> List[List[float]]:
         try:
-            response = embed_content(model="intfloat/e5-base-v2", content=texts)
-            embedded_chunks = response["embedding"]
-            return embedded_chunks
+            embedded_chunks = self.model.encode(texts, show_progress_bar=True)
+            return embedded_chunks.tolist() if hasattr(embedded_chunks, 'tolist') else embedded_chunks
         except Exception as e:
             raise EmbeddingAPIError(f"Embedding API error: {e}")
 
@@ -57,12 +55,30 @@ class DocumentProcessor:
 
     def retrieving_chunks(self, query: str, top_k: int = 5) -> str:
         try:
-            response = embed_content(model="models/embedding-001", content=[query])
-            query_embedding = response["embedding"][0]
+            query_embedding = self.model.encode([query])[0]
+            if hasattr(query_embedding, 'tolist'):
+                query_embedding = query_embedding.tolist()
             results = self.pinecone_db.query(vector=query_embedding, top_k=top_k, include_metadata=True)
             matches = results.get("matches", [])
             retrieved_chunks = [match["metadata"]["text"] for match in matches]
             return "\n".join(retrieved_chunks)
         except Exception as e:
             raise RetrievingAPIError(f"Error retrieving chunks: {str(e)}")
+
+    def answer_query(self, query: str, top_k: int = 5) -> str:
+        """
+        Retrieve relevant chunks and generate answer using Gemini 2.5 Flash
+        """
+        retrieved_chunks = self.retrieving_chunks(query, top_k=top_k)
+        context = "\n".join(retrieved_chunks)
+        prompt = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+        # Set API key using google.generativeai.client.configure
+        try:
+            from google.generativeai.client import configure
+            configure(api_key=settings.GOOGLE_API_KEY)
+            model = GenerativeModel("gemini-2.5-flash")
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            raise RetrievingAPIError(f"Error generating answer: {str(e)}")
 
