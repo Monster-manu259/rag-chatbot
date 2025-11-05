@@ -9,3 +9,6 @@ temp_APMC_DOCUMENTATION.pdf
 
 # Ignore test file
 test.py
+
+# Ignore pycache in src/utils
+src/utils/__pycache__/
